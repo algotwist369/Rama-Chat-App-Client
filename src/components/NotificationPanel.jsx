@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { 
   Bell, 
   X, 
@@ -10,92 +10,41 @@ import {
   Clock
 } from 'lucide-react';
 import { formatMessageTime } from '../utils/formatDate';
-import { notificationApi } from '../api/notificationApi';
-import toast from 'react-hot-toast';
+import { useNotifications } from '../hooks/useNotifications';
 
 const NotificationPanel = ({ isOpen, onClose, onNotificationClick, onNotificationCountChange }) => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const {
+    notifications,
+    loading,
+    notificationCount,
+    loadNotifications,
+    markNotificationsAsSeen,
+    clearAllNotifications,
+    createTestNotifications,
+    handleNotificationClick: handleClick
+  } = useNotifications();
+
+  useEffect(() => {
+    // Load notifications when component mounts
+    loadNotifications();
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (isOpen) {
+      // Reload notifications when panel opens to get latest
       loadNotifications();
       // Don't mark notifications as seen when panel opens - only when clicked
     }
-  }, [isOpen]);
+  }, [isOpen, loadNotifications]);
 
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await notificationApi.getNotifications();
-      setNotifications(response.notifications || []);
-      // Update notification count in parent component
-      if (onNotificationCountChange) {
-        onNotificationCountChange(response.notifications?.length || 0);
-      }
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-      toast.error('Failed to load notifications');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    // Update notification count in parent component when it changes
+    if (onNotificationCountChange) {
+      console.log('NotificationPanel: Updating parent notification count to:', notificationCount);
+      onNotificationCountChange(notificationCount);
     }
-  };
+  }, [notificationCount, onNotificationCountChange]);
 
-  const markNotificationsAsSeen = async () => {
-    try {
-      console.log('Marking notifications as seen...');
-      // Call API to mark notifications as seen
-      await notificationApi.markAsSeen();
-      console.log('Notifications marked as seen');
-      
-      // Update notification count to 0 since all are now seen
-      if (onNotificationCountChange) {
-        onNotificationCountChange(0);
-      }
-    } catch (error) {
-      console.error('Error marking notifications as seen:', error);
-    }
-  };
-
-  const handleClearAll = async () => {
-    try {
-      await notificationApi.clearNotifications();
-      setNotifications([]);
-      // Update notification count in parent component
-      if (onNotificationCountChange) {
-        onNotificationCountChange(0);
-      }
-      toast.success('All notifications cleared');
-    } catch (error) {
-      console.error('Error clearing notifications:', error);
-      toast.error('Failed to clear notifications');
-    }
-  };
-
-  const handleCreateTestNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/test`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        toast.success('Test notifications created');
-        loadNotifications(); // Reload notifications
-      } else {
-        toast.error('Failed to create test notifications');
-      }
-    } catch (error) {
-      console.error('Error creating test notifications:', error);
-      toast.error('Failed to create test notifications');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -127,27 +76,6 @@ const NotificationPanel = ({ isOpen, onClose, onNotificationClick, onNotificatio
     }
   };
 
-  const handleNotificationClick = (notification) => {
-    console.log('Notification clicked:', notification);
-    
-    // Remove the clicked notification from the local list
-    setNotifications(prev => {
-      const updated = prev.filter(n => n._id !== notification._id);
-      // Update notification count
-      if (onNotificationCountChange) {
-        onNotificationCountChange(updated.length);
-      }
-      return updated;
-    });
-    
-    if (onNotificationClick) {
-      onNotificationClick(notification);
-    }
-    // Close the panel after a short delay to allow navigation
-    setTimeout(() => {
-      onClose();
-    }, 100);
-  };
 
   if (!isOpen) return null;
 
@@ -175,7 +103,7 @@ const NotificationPanel = ({ isOpen, onClose, onNotificationClick, onNotificatio
           <div className="flex items-center space-x-2">
             {notifications.length === 0 && (
               <button
-                onClick={handleCreateTestNotifications}
+                onClick={createTestNotifications}
                 className="px-2 py-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded"
                 title="Create test notifications"
               >
@@ -184,7 +112,7 @@ const NotificationPanel = ({ isOpen, onClose, onNotificationClick, onNotificatio
             )}
             {notifications.length > 0 && (
               <button
-                onClick={handleClearAll}
+                onClick={clearAllNotifications}
                 className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                 title="Clear all notifications"
               >
@@ -217,7 +145,7 @@ const NotificationPanel = ({ isOpen, onClose, onNotificationClick, onNotificatio
               {notifications.map((notification, index) => (
                 <div
                   key={index}
-                  onClick={() => handleNotificationClick(notification)}
+                  onClick={() => handleClick(notification, onNotificationClick, onClose)}
                   className={`p-3 rounded-lg border cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ${getNotificationColor(notification.type)}`}
                 >
                   <div className="flex items-start space-x-3">

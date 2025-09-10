@@ -134,8 +134,13 @@ class SocketService {
   }
 
   emit(event, data, callback) {
-    if (this.socket) {
+    if (this.socket && this.socket.connected) {
       this.socket.emit(event, data, callback);
+    } else {
+      console.warn(`Socket not connected when trying to emit ${event}`);
+      if (callback) {
+        callback({ error: 'Socket not connected' });
+      }
     }
   }
 

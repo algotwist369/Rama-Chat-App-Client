@@ -145,8 +145,11 @@ const Dashboard = () => {
             const unreadMessageIds = messages
                 .filter(msg => 
                     msg.groupId === selectedGroup._id && 
-                    msg.senderId._id !== user.id &&
-                    !msg.seenBy?.some(seenUser => seenUser._id === user.id || seenUser === user.id)
+                    msg.senderId._id !== user.id && msg.senderId._id !== user._id &&
+                    !msg.seenBy?.some(seenUser => 
+                        seenUser._id === user.id || seenUser._id === user._id || 
+                        seenUser === user.id || seenUser === user._id
+                    )
                 )
                 .map(msg => msg._id)
             
@@ -180,8 +183,11 @@ const Dashboard = () => {
             const unreadMessageIds = messages
                 .filter(msg => 
                     msg.groupId === selectedGroup._id && 
-                    msg.senderId._id !== user.id &&
-                    !msg.seenBy?.some(seenUser => seenUser._id === user.id || seenUser === user.id)
+                    msg.senderId._id !== user.id && msg.senderId._id !== user._id &&
+                    !msg.seenBy?.some(seenUser => 
+                        seenUser._id === user.id || seenUser._id === user._id || 
+                        seenUser === user.id || seenUser === user._id
+                    )
                 )
                 .map(msg => msg._id)
             
@@ -254,18 +260,22 @@ const Dashboard = () => {
     }
 
     const handleNewMessage = (message) => {
+        console.log('New message received:', message);
         // Check if this message is already in the messages array to prevent duplicates
         setMessages(prev => {
-            const messageExists = prev.some(msg => msg._id === message._id)
+            const messageExists = prev.some(msg => 
+                msg._id === message._id || msg._id.toString() === message._id.toString()
+            );
             if (messageExists) {
-                console.log('Message already exists, skipping duplicate:', message._id)
-                return prev
+                console.log('Message already exists, skipping duplicate:', message._id);
+                return prev;
             }
-            return [...prev, message]
-        })
+            console.log('Adding new message to list:', message);
+            return [...prev, message];
+        });
 
         // Mark as delivered if not from current user
-        if (message.senderId._id !== user.id) {
+        if (message.senderId._id !== user.id && message.senderId._id !== user._id) {
             messageApi.markAsDelivered([message._id]).catch(console.error)
             
             // Update unread counts
@@ -575,7 +585,13 @@ const Dashboard = () => {
     }
 
     const handleSendMessage = (messageData, callback) => {
-        socketService.sendMessage(messageData, callback)
+        console.log('Sending message:', messageData);
+        socketService.sendMessage(messageData, (response) => {
+            console.log('Message send response:', response);
+            if (callback) {
+                callback(response);
+            }
+        });
     }
 
     // Note: Join/Leave functionality removed as users can only see groups they're members of
@@ -598,10 +614,13 @@ const Dashboard = () => {
             const count = response.notifications?.length || 0
             console.log('Notification count loaded:', count)
             console.log('Setting notification count to:', count)
+            console.log('Full response:', response)
             setNotificationCount(count)
+            return count
         } catch (error) {
             console.error('Error loading notification count:', error)
             setNotificationCount(0)
+            return 0
         }
     }
 
@@ -682,6 +701,45 @@ const Dashboard = () => {
                                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mb-4"
                             >
                                 Test Notification Count (5)
+                            </button>
+                            
+                            {/* Test button to create actual notifications */}
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/test`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                                                'Content-Type': 'application/json'
+                                            }
+                                        });
+                                        if (response.ok) {
+                                            toast.success('Test notifications created');
+                                            await loadNotificationCount();
+                                        } else {
+                                            toast.error('Failed to create test notifications');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error creating test notifications:', error);
+                                        toast.error('Failed to create test notifications');
+                                    }
+                                }}
+                                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 mb-4 ml-2"
+                            >
+                                Create Test Notifications
+                            </button>
+                            
+                            {/* Debug button to check notification count */}
+                            <button
+                                onClick={async () => {
+                                    console.log('Current notification count:', notificationCount);
+                                    await loadNotificationCount();
+                                    console.log('Notification count after reload:', notificationCount);
+                                }}
+                                className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mb-4 ml-2"
+                            >
+                                Debug Notification Count
                             </button>
                             
                             {/* Test button for socket connection */}

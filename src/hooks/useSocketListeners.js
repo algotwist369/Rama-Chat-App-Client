@@ -31,37 +31,49 @@ export const useSocketListeners = (group, socketService) => {
             console.log('ChatWindow - Current online members before update:', onlineMembers);
             
             setOnlineMembers(prev => {
-                const updated = prev.map(member => 
-                    member._id === data.userId 
-                        ? { ...member, isOnline: true, lastSeen: new Date() }
-                        : member
+                const memberExists = prev.some(member => 
+                    member._id === data.userId || member._id.toString() === data.userId.toString()
                 );
-                console.log('ChatWindow - Updated online members:', updated);
-                return updated;
+                
+                if (memberExists) {
+                    const updated = prev.map(member => 
+                        (member._id === data.userId || member._id.toString() === data.userId.toString())
+                            ? { ...member, isOnline: true, lastSeen: new Date() }
+                            : member
+                    );
+                    console.log('ChatWindow - Updated existing member to online:', updated);
+                    return updated;
+                } else {
+                    // If member doesn't exist in current list, add them
+                    const newMember = {
+                        _id: data.userId,
+                        username: data.username,
+                        isOnline: true,
+                        lastSeen: new Date()
+                    };
+                    const updated = [...prev, newMember];
+                    console.log('ChatWindow - Added new online member:', updated);
+                    return updated;
+                }
             });
+            
             setOnlineCount(prev => {
                 const newCount = prev + 1;
                 console.log('ChatWindow - Online count updated from', prev, 'to', newCount);
                 return newCount;
             });
-            
-            // Show toast notification
-            toast.success(`${data.username} is now online`, { duration: 2000 });
         };
 
         const handleUserOffline = (data) => {
             console.log('ChatWindow - User went offline:', data);
             setOnlineMembers(prev => 
                 prev.map(member => 
-                    member._id === data.userId 
+                    (member._id === data.userId || member._id.toString() === data.userId.toString())
                         ? { ...member, isOnline: false, lastSeen: data.lastSeen }
                         : member
                 )
             );
             setOnlineCount(prev => Math.max(0, prev - 1));
-            
-            // Show toast notification
-            toast(`${data.username} is now offline`, { duration: 2000 });
         };
 
         // Global status change handler
@@ -78,7 +90,7 @@ export const useSocketListeners = (group, socketService) => {
         const handleTypingStart = ({ userId, username, groupId }) => {
             console.log('ChatWindow - Typing start received:', { userId, username, groupId, currentGroupId: group?._id });
             // Only show typing indicator if it's for the currently selected group
-            if (group && groupId.toString() === group._id.toString()) {
+            if (group && groupId && groupId.toString() === group._id.toString()) {
                 console.log('ChatWindow - Adding typing user:', username);
                 setLocalTypingUsers(prev => {
                     const newMap = new Map(prev);
@@ -94,7 +106,7 @@ export const useSocketListeners = (group, socketService) => {
         const handleTypingStop = ({ userId, username, groupId }) => {
             console.log('ChatWindow - Typing stop received:', { userId, username, groupId, currentGroupId: group?._id });
             // Only handle typing stop if it's for the currently selected group
-            if (group && groupId.toString() === group._id.toString()) {
+            if (group && groupId && groupId.toString() === group._id.toString()) {
                 console.log('ChatWindow - Removing typing user:', username);
                 setLocalTypingUsers(prev => {
                     const newMap = new Map(prev);

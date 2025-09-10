@@ -48,11 +48,11 @@ export const useTypingIndicator = (group, socketService) => {
             if (typingTimeoutRef.current) {
                 clearTimeout(typingTimeoutRef.current);
             }
-            if (isTyping) {
+            if (isTyping && group?._id) {
                 socketService.stopTyping(group._id);
             }
         };
-    }, [isTyping, group._id, socketService]);
+    }, [isTyping, group?._id, socketService]);
 
     return {
         isTyping,

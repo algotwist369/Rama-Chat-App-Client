@@ -84,9 +84,11 @@ const ChatWindow = ({
     // Filter typing users to exclude current user
     const filteredTypingUsers = useMemo(() => {
         return Array.from(localTypingUsers.entries()).filter(([userId, username]) =>
-            userId !== currentUser.id && userId !== currentUser._id
+            userId !== currentUser.id && userId !== currentUser._id &&
+            userId.toString() !== currentUser.id?.toString() && 
+            userId.toString() !== currentUser._id?.toString()
         );
-    }, [localTypingUsers, currentUser.id]);
+    }, [localTypingUsers, currentUser.id, currentUser._id]);
 
     // Set message text when editing
     useEffect(() => {
@@ -134,13 +136,18 @@ const ChatWindow = ({
             };
 
             onSendMessage(messageData, (response) => {
-                if (response.ok) {
+                console.log('Message send response:', response);
+                if (response && response.ok) {
                     setMessageText('');
                     if (isTyping) {
                         stopTyping();
                     }
                     // Ensure we're at bottom after sending
                     setTimeout(handleScrollToBottom, 100);
+                } else if (response && response.error) {
+                    toast.error('Failed to send message: ' + response.error);
+                } else {
+                    toast.error('Failed to send message');
                 }
             });
         }
